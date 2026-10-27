@@ -1,153 +1,240 @@
-import { useState } from "react";
+import { useForm } from "../hooks/useForm.js";
 import TypeSwitch from "./TypeSwitch.jsx";
-import { incomeCategories, expenseCategories } from "../utils/helpers.js";
+import {
+  incomeCategories,
+  expenseCategories,
+  paymentMethods,
+  transactionTags,
+} from "../utils/helpers.js";
 
-// This form is used for BOTH adding a new transaction and editing an
-// existing one. If "editingTransaction" is passed in, the form starts
-// out filled with that transaction's data. Otherwise it starts empty.
+// TransactionForm: Handles both Add and Edit modes.
+// Demonstrates advanced React form handling:
+//   - Custom useForm hook with controlled inputs
+//   - Real-time field validation with visual error states
+//   - Touch tracking (errors display only once touched or on submit)
+//   - Multiple input types: text, number, date, select, textarea, and custom toggle
+//   - Character limit tracking and dirty-state reset
 
-function getEmptyForm() {
-  return {
-    title: "",
-    amount: "",
-    type: "expense",
-    category: "Food",
-    date: new Date().toISOString().slice(0, 10),
-    description: "",
-  };
+function validateTransaction(values) {
+  const errors = {};
+
+  if (!values.title || !values.title.trim()) {
+    errors.title = "Title is required.";
+  } else if (values.title.trim().length < 2) {
+    errors.title = "Title must be at least 2 characters.";
+  }
+
+  const amountNum = Number(values.amount);
+  if (!values.amount || isNaN(amountNum) || amountNum <= 0) {
+    errors.amount = "Amount must be greater than 0.";
+  } else if (amountNum > 10000000) {
+    errors.amount = "Amount cannot exceed ₹1,00,00,000.";
+  }
+
+  if (!values.category) {
+    errors.category = "Please select a category.";
+  }
+
+  if (!values.date) {
+    errors.date = "Please select a date.";
+  }
+
+  if (values.description && values.description.length > 150) {
+    errors.description = "Description cannot exceed 150 characters.";
+  }
+
+  return errors;
 }
 
 function TransactionForm({ editingTransaction, onSave, onCancel }) {
-  const [form, setForm] = useState(
-    editingTransaction
-      ? {
-          title: editingTransaction.title,
-          amount: editingTransaction.amount,
-          type: editingTransaction.type,
-          category: editingTransaction.category,
-          date: editingTransaction.date,
-          description: editingTransaction.description || "",
-        }
-      : getEmptyForm()
-  );
-  const [error, setError] = useState("");
+  const initialValues = {
+    title: editingTransaction?.title || "",
+    amount: editingTransaction?.amount !== undefined ? editingTransaction.amount : "",
+    type: editingTransaction?.type || "expense",
+    category:
+      editingTransaction?.category ||
+      (editingTransaction?.type === "income" ? incomeCategories[0] : expenseCategories[0]),
+    date: editingTransaction?.date || new Date().toISOString().slice(0, 10),
+    paymentMethod: editingTransaction?.paymentMethod || "UPI",
+    tag: editingTransaction?.tag || "Essential",
+    description: editingTransaction?.description || "",
+  };
 
-  // Update a single field in the form state.
-  function handleChange(field, value) {
-    setForm({ ...form, [field]: value });
-  }
+  const {
+    values,
+    errors,
+    touched,
+    isDirty,
+    isValid,
+    handleChange,
+    handleBlur,
+    setFieldValue,
+    resetForm,
+    handleSubmit,
+  } = useForm({
+    initialValues,
+    validate: validateTransaction,
+    onSubmit: (formValues) => {
+      onSave({
+        ...formValues,
+        amount: Number(formValues.amount),
+        title: formValues.title.trim(),
+        description: formValues.description.trim(),
+      });
+    },
+  });
 
-  // When the transaction type changes, reset the category to a sensible
-  // default for that type (income categories vs expense categories).
   function handleTypeChange(newType) {
     const categories = newType === "income" ? incomeCategories : expenseCategories;
-    setForm({ ...form, type: newType, category: categories[0] });
+    setFieldValue("type", newType);
+    setFieldValue("category", categories[0]);
   }
 
-  function handleSubmit(event) {
-    event.preventDefault();
-
-    // Basic validation using plain JavaScript, no external library.
-    if (!form.title.trim()) {
-      setError("Please enter a title.");
-      return;
-    }
-
-    if (!form.amount || Number(form.amount) <= 0) {
-      setError("Amount must be greater than 0.");
-      return;
-    }
-
-    if (!form.category) {
-      setError("Please choose a category.");
-      return;
-    }
-
-    if (!form.date) {
-      setError("Please choose a date.");
-      return;
-    }
-
-    setError("");
-
-    onSave({
-      ...form,
-      amount: Number(form.amount),
-    });
-  }
-
-  const categories = form.type === "income" ? incomeCategories : expenseCategories;
+  const availableCategories =
+    values.type === "income" ? incomeCategories : expenseCategories;
 
   return (
-    <form className="transaction-form" onSubmit={handleSubmit}>
-      <h2>{editingTransaction ? "Edit Transaction" : "Add Transaction"}</h2>
+    <form className="transaction-form" onSubmit={handleSubmit} noValidate>
+      <div className="form-header">
+        <h2>{editingTransaction ? "Edit Transaction" : "Add Transaction"}</h2>
+        {isDirty && <span className="unsaved-badge">Unsaved changes</span>}
+      </div>
 
-      <TypeSwitch value={form.type} onChange={handleTypeChange} />
+      <TypeSwitch value={values.type} onChange={handleTypeChange} />
 
       <div className="form-grid">
         <label>
-          Title
+          Title *
           <input
             type="text"
-            value={form.title}
+            className={touched.title && errors.title ? "input-error" : ""}
+            value={values.title}
             onChange={(e) => handleChange("title", e.target.value)}
-            placeholder="e.g. Groceries"
+            onBlur={() => handleBlur("title")}
+            placeholder="e.g. Groceries, Freelance project"
           />
+          {touched.title && errors.title && (
+            <span className="form-field-error">{errors.title}</span>
+          )}
         </label>
 
         <label>
-          Amount
+          Amount (₹) *
           <input
             type="number"
-            min="0"
-            step="0.01"
-            value={form.amount}
+            min="0.01"
+            step="any"
+            className={touched.amount && errors.amount ? "input-error" : ""}
+            value={values.amount}
             onChange={(e) => handleChange("amount", e.target.value)}
+            onBlur={() => handleBlur("amount")}
             placeholder="0.00"
           />
+          {touched.amount && errors.amount && (
+            <span className="form-field-error">{errors.amount}</span>
+          )}
         </label>
 
         <label>
-          Category
+          Category *
           <select
-            value={form.category}
+            className={touched.category && errors.category ? "input-error" : ""}
+            value={values.category}
             onChange={(e) => handleChange("category", e.target.value)}
+            onBlur={() => handleBlur("category")}
           >
-            {categories.map((category) => (
+            {availableCategories.map((category) => (
               <option key={category} value={category}>
                 {category}
+              </option>
+            ))}
+          </select>
+          {touched.category && errors.category && (
+            <span className="form-field-error">{errors.category}</span>
+          )}
+        </label>
+
+        <label>
+          Date *
+          <input
+            type="date"
+            className={touched.date && errors.date ? "input-error" : ""}
+            value={values.date}
+            onChange={(e) => handleChange("date", e.target.value)}
+            onBlur={() => handleBlur("date")}
+          />
+          {touched.date && errors.date && (
+            <span className="form-field-error">{errors.date}</span>
+          )}
+        </label>
+
+        <label>
+          Payment Method
+          <select
+            value={values.paymentMethod}
+            onChange={(e) => handleChange("paymentMethod", e.target.value)}
+          >
+            {paymentMethods.map((method) => (
+              <option key={method} value={method}>
+                {method}
               </option>
             ))}
           </select>
         </label>
 
         <label>
-          Date
-          <input
-            type="date"
-            value={form.date}
-            onChange={(e) => handleChange("date", e.target.value)}
-          />
+          Tag
+          <select
+            value={values.tag}
+            onChange={(e) => handleChange("tag", e.target.value)}
+          >
+            {transactionTags.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="full-width">
-          Description (optional)
+          <div className="label-with-meta">
+            <span>Description (optional)</span>
+            <span className="char-count">
+              {values.description ? values.description.length : 0} / 150
+            </span>
+          </div>
           <textarea
-            value={form.description}
+            className={touched.description && errors.description ? "input-error" : ""}
+            value={values.description}
             onChange={(e) => handleChange("description", e.target.value)}
-            placeholder="Add a short note..."
+            onBlur={() => handleBlur("description")}
+            placeholder="Add notes, store name, or receipt details..."
             rows={2}
           />
+          {touched.description && errors.description && (
+            <span className="form-field-error">{errors.description}</span>
+          )}
         </label>
       </div>
 
-      {error && <p className="form-error">{error}</p>}
-
       <div className="form-actions">
+        {isDirty && (
+          <button
+            type="button"
+            className="btn btn-secondary btn-small"
+            onClick={() => resetForm()}
+          >
+            Reset Form
+          </button>
+        )}
         <button type="button" className="btn btn-secondary" onClick={onCancel}>
           Cancel
         </button>
-        <button type="submit" className="btn btn-primary">
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={!isValid && Object.keys(touched).length > 0}
+        >
           {editingTransaction ? "Save Changes" : "Add Transaction"}
         </button>
       </div>

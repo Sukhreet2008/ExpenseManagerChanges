@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
 import ChartCard from "../components/ChartCard.jsx";
 import IncomeVsExpenseCard from "../components/IncomeVsExpenseCard.jsx";
 import MonthlyTrendTable from "../components/MonthlyTrendTable.jsx";
@@ -6,14 +7,46 @@ import SavingsGoalCard from "../components/SavingsGoalCard.jsx";
 import MonthlyTargetCard from "../components/MonthlyTargetCard.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import { getMonthKey, getMonthLabel, getWeekStart, getSavingsRate } from "../utils/helpers.js";
+import { selectAllTransactions } from "../store/transactionsSlice.js";
+import {
+  selectSavingsGoal,
+  selectMonthlyTargetRate,
+  updateSavingsGoal,
+  updateMonthlyTargetRate,
+} from "../store/budgetSlice.js";
+import { useToast } from "../context/ToastContext.js";
 
-// Just like Dashboard.jsx, this page only does the CALCULATIONS.
-// Each finished result is handed to a small display component:
-//   IncomeVsExpenseCard, ChartCard (reused for 3 different charts),
-//   MonthlyTrendTable, SavingsGoalCard, MonthlyTargetCard.
-
-function Analytics({ transactions, savingsGoal, monthlyTargetRate, onUpdateSavingsGoal, onUpdateMonthlyTarget }) {
+function Analytics(props) {
   const [activeTab, setActiveTab] = useState("overview");
+
+  const reduxTransactions = useSelector(selectAllTransactions);
+  const reduxSavingsGoal = useSelector(selectSavingsGoal);
+  const reduxMonthlyTarget = useSelector(selectMonthlyTargetRate);
+  const dispatch = useDispatch();
+  const { showToast } = useToast();
+
+  const transactions = props.transactions || reduxTransactions;
+  const savingsGoal = props.savingsGoal !== undefined ? props.savingsGoal : reduxSavingsGoal;
+  const monthlyTargetRate =
+    props.monthlyTargetRate !== undefined ? props.monthlyTargetRate : reduxMonthlyTarget;
+
+  function handleUpdateGoal(amount) {
+    if (props.onUpdateSavingsGoal) {
+      props.onUpdateSavingsGoal(amount);
+    } else {
+      dispatch(updateSavingsGoal(amount));
+    }
+    showToast("Savings goal updated!", "success");
+  }
+
+  function handleUpdateTarget(rate) {
+    if (props.onUpdateMonthlyTarget) {
+      props.onUpdateMonthlyTarget(rate);
+    } else {
+      dispatch(updateMonthlyTargetRate(rate));
+    }
+    showToast("Monthly target rate updated!", "success");
+  }
 
   if (transactions.length === 0) {
     return (
@@ -30,38 +63,34 @@ function Analytics({ transactions, savingsGoal, monthlyTargetRate, onUpdateSavin
   const expenseTransactions = transactions.filter((t) => t.type === "expense");
   const incomeTransactions = transactions.filter((t) => t.type === "income");
 
-  // 1. Expense by Category ------------------------------------------------
-
+  // 1. Expense by Category
   const categoryTotals = {};
   expenseTransactions.forEach((t) => {
-    categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+    categoryTotals[t.category] = (categoryTotals[t.category] || 0) + Number(t.amount || 0);
   });
   const categoryData = Object.keys(categoryTotals)
     .map((category) => ({ label: category, value: categoryTotals[category] }))
     .sort((a, b) => b.value - a.value);
 
-  // 2. Monthly Expense ------------------------------------------------------
-
+  // 2. Monthly Expense
   const monthlyExpenseTotals = {};
   expenseTransactions.forEach((t) => {
     const key = getMonthKey(t.date);
-    monthlyExpenseTotals[key] = (monthlyExpenseTotals[key] || 0) + t.amount;
+    monthlyExpenseTotals[key] = (monthlyExpenseTotals[key] || 0) + Number(t.amount || 0);
   });
   const monthlyExpenseData = Object.keys(monthlyExpenseTotals)
     .sort()
     .map((key) => ({ label: getMonthLabel(key), value: monthlyExpenseTotals[key] }));
 
-  // 3. Income vs Expense totals ------------------------------------------------
+  // 3. Income vs Expense totals
+  const totalIncome = incomeTransactions.reduce((total, t) => total + Number(t.amount || 0), 0);
+  const totalExpense = expenseTransactions.reduce((total, t) => total + Number(t.amount || 0), 0);
 
-  const totalIncome = incomeTransactions.reduce((total, t) => total + t.amount, 0);
-  const totalExpense = expenseTransactions.reduce((total, t) => total + t.amount, 0);
-
-  // 4. Weekly Spending (last 6 weeks) ------------------------------------------
-
+  // 4. Weekly Spending (last 6 weeks)
   const weeklyTotals = {};
   expenseTransactions.forEach((t) => {
     const weekKey = getWeekStart(t.date);
-    weeklyTotals[weekKey] = (weeklyTotals[weekKey] || 0) + t.amount;
+    weeklyTotals[weekKey] = (weeklyTotals[weekKey] || 0) + Number(t.amount || 0);
   });
   const weeklyData = Object.keys(weeklyTotals)
     .sort()
@@ -72,12 +101,11 @@ function Analytics({ transactions, savingsGoal, monthlyTargetRate, onUpdateSavin
       return { label, value: weeklyTotals[weekKey] };
     });
 
-  // 5. Monthly Trend (income and expense together, last 6 months) -----------
-
+  // 5. Monthly Trend (income and expense together, last 6 months)
   const monthlyIncomeTotals = {};
   incomeTransactions.forEach((t) => {
     const key = getMonthKey(t.date);
-    monthlyIncomeTotals[key] = (monthlyIncomeTotals[key] || 0) + t.amount;
+    monthlyIncomeTotals[key] = (monthlyIncomeTotals[key] || 0) + Number(t.amount || 0);
   });
 
   const trendRows = [
@@ -91,8 +119,7 @@ function Analytics({ transactions, savingsGoal, monthlyTargetRate, onUpdateSavin
       expense: monthlyExpenseTotals[monthKey] || 0,
     }));
 
-  // 6. Savings: goal progress + monthly target tracking (last 12 months) ----
-
+  // 6. Savings: goal progress + monthly target tracking (last 12 months)
   const savingsTrendRows = [
     ...new Set([...Object.keys(monthlyExpenseTotals), ...Object.keys(monthlyIncomeTotals)]),
   ]
@@ -114,7 +141,12 @@ function Analytics({ transactions, savingsGoal, monthlyTargetRate, onUpdateSavin
 
   return (
     <div className="page">
-      <h1>Analytics</h1>
+      <div className="page-header">
+        <div>
+          <h1>Analytics</h1>
+          <p className="page-subtitle">Deep dive into your cash flows, category habits, and savings.</p>
+        </div>
+      </div>
 
       <div className="type-switch analytics-tabs">
         <button
@@ -167,13 +199,13 @@ function Analytics({ transactions, savingsGoal, monthlyTargetRate, onUpdateSavin
           <SavingsGoalCard
             totalSaved={totalSaved}
             goal={savingsGoal}
-            onUpdateGoal={onUpdateSavingsGoal}
+            onUpdateGoal={handleUpdateGoal}
           />
 
           <MonthlyTargetCard
             rows={savingsTrendRows}
             targetRate={monthlyTargetRate}
-            onUpdateTarget={onUpdateMonthlyTarget}
+            onUpdateTarget={handleUpdateTarget}
           />
         </>
       )}

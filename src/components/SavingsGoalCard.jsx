@@ -2,16 +2,21 @@ import { useState } from "react";
 import { formatCurrency } from "../utils/helpers.js";
 
 // Lets the user set an overall savings goal (a rupee amount) and shows
-// how close their lifetime savings (total income - total expense) is
-// to reaching it, as a progress bar.
+// how close their savings is to reaching it, as a progress bar.
+// If the target goal is below the saved demo data (e.g. target is ₹10,000 but demo data has ₹52,000 saved),
+// it resets that saved amount to the goal reached; otherwise, it keeps the actual saved amount.
 
 function SavingsGoalCard({ totalSaved, goal, onUpdateGoal }) {
   const [editing, setEditing] = useState(false);
   const [draftGoal, setDraftGoal] = useState(goal);
 
-  const progressPercent = goal > 0 ? Math.min(100, Math.max(0, (totalSaved / goal) * 100)) : 0;
+  // If target is below demo data / totalSaved, reset that saved amount to the goal it has reached.
+  // Otherwise, keep it the same as the actual saved demo data.
+  const displaySaved = goal > 0 && totalSaved > goal ? goal : totalSaved;
+
+  const progressPercent = goal > 0 ? Math.min(100, Math.max(0, (displaySaved / goal) * 100)) : 0;
   const reached = totalSaved >= goal && goal > 0;
-  const remaining = Math.max(0, goal - totalSaved);
+  const remaining = Math.max(0, goal - displaySaved);
 
   function startEditing() {
     setDraftGoal(goal);
@@ -66,7 +71,7 @@ function SavingsGoalCard({ totalSaved, goal, onUpdateGoal }) {
       ) : (
         <>
           <div className="savings-goal-numbers">
-            <span className="savings-goal-current">{formatCurrency(totalSaved)}</span>
+            <span className="savings-goal-current">{formatCurrency(displaySaved)}</span>
             <span className="savings-goal-target">of {formatCurrency(goal)}</span>
           </div>
 

@@ -18,6 +18,23 @@ export const allCategories = [...incomeCategories, ...expenseCategories].filter(
   (category, index, array) => array.indexOf(category) === index // remove duplicates like "Other"
 );
 
+export const paymentMethods = [
+  "Cash",
+  "UPI",
+  "Credit Card",
+  "Debit Card",
+  "Net Banking",
+];
+
+export const transactionTags = [
+  "Essential",
+  "Discretionary",
+  "Work",
+  "Personal",
+  "Recurring",
+  "Savings",
+];
+
 // Turn a number into a nicely formatted Rupee amount, e.g. 45000 -> "₹45,000"
 export function formatCurrency(amount) {
   const number = Number(amount) || 0;
@@ -41,11 +58,13 @@ export function formatDate(dateString) {
 
 // Get a "YYYY-MM" key from a date string, used for grouping by month.
 export function getMonthKey(dateString) {
+  if (!dateString) return "";
   return dateString.slice(0, 7);
 }
 
 // Turn "2026-08" into "Aug 2026"
 export function getMonthLabel(monthKey) {
+  if (!monthKey) return "";
   const date = new Date(monthKey + "-01");
   return date.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
 }

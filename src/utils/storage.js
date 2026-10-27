@@ -6,10 +6,11 @@ const TRANSACTIONS_KEY = "transactions";
 const THEME_KEY = "theme";
 const SAVINGS_GOAL_KEY = "savingsGoal";
 const MONTHLY_TARGET_KEY = "monthlyTargetRate";
+const CATEGORY_BUDGETS_KEY = "categoryBudgets";
 
 // A few sample transactions so the app is not completely empty
 // the very first time someone opens it.
-const sampleTransactions = [
+export const sampleTransactions = [
   {
     id: 1,
     title: "Salary",
@@ -18,6 +19,8 @@ const sampleTransactions = [
     category: "Salary",
     date: "2026-08-01",
     description: "Monthly salary",
+    paymentMethod: "Net Banking",
+    tag: "Essential",
   },
   {
     id: 2,
@@ -27,6 +30,8 @@ const sampleTransactions = [
     category: "Food",
     date: "2026-08-03",
     description: "Monthly groceries",
+    paymentMethod: "UPI",
+    tag: "Essential",
   },
   {
     id: 3,
@@ -36,6 +41,8 @@ const sampleTransactions = [
     category: "Bills",
     date: "2026-08-05",
     description: "Electricity bill for August",
+    paymentMethod: "Credit Card",
+    tag: "Essential",
   },
   {
     id: 4,
@@ -45,6 +52,8 @@ const sampleTransactions = [
     category: "Freelance",
     date: "2026-08-08",
     description: "Website project payment",
+    paymentMethod: "Net Banking",
+    tag: "Work",
   },
   {
     id: 5,
@@ -54,6 +63,8 @@ const sampleTransactions = [
     category: "Entertainment",
     date: "2026-08-10",
     description: "Movie with friends",
+    paymentMethod: "UPI",
+    tag: "Discretionary",
   },
   {
     id: 6,
@@ -63,8 +74,96 @@ const sampleTransactions = [
     category: "Transport",
     date: "2026-08-12",
     description: "Monthly bus pass",
+    paymentMethod: "Cash",
+    tag: "Essential",
+  },
+  {
+    id: 7,
+    title: "Salary",
+    amount: 55000,
+    type: "income",
+    category: "Salary",
+    date: "2026-10-01",
+    description: "Monthly salary for October",
+    paymentMethod: "Net Banking",
+    tag: "Essential",
+  },
+  {
+    id: 8,
+    title: "Diwali Shopping",
+    amount: 6500,
+    type: "expense",
+    category: "Shopping",
+    date: "2026-10-04",
+    description: "Festive clothes and home decor",
+    paymentMethod: "Credit Card",
+    tag: "Discretionary",
+  },
+  {
+    id: 9,
+    title: "Supermarket & Groceries",
+    amount: 3200,
+    type: "expense",
+    category: "Food",
+    date: "2026-10-08",
+    description: "Monthly grocery restock",
+    paymentMethod: "UPI",
+    tag: "Essential",
+  },
+  {
+    id: 10,
+    title: "Wi-Fi & Broadband Bill",
+    amount: 1200,
+    type: "expense",
+    category: "Bills",
+    date: "2026-10-12",
+    description: "Broadband and phone bill",
+    paymentMethod: "UPI",
+    tag: "Essential",
+  },
+  {
+    id: 11,
+    title: "Consulting Gig",
+    amount: 14000,
+    type: "income",
+    category: "Freelance",
+    date: "2026-10-15",
+    description: "Tech consulting payment",
+    paymentMethod: "Net Banking",
+    tag: "Work",
+  },
+  {
+    id: 12,
+    title: "Family Restaurant Dinner",
+    amount: 1600,
+    type: "expense",
+    category: "Food",
+    date: "2026-10-18",
+    description: "Weekend family dinner",
+    paymentMethod: "Credit Card",
+    tag: "Personal",
+  },
+  {
+    id: 13,
+    title: "Fuel & Metro Card",
+    amount: 1100,
+    type: "expense",
+    category: "Transport",
+    date: "2026-10-22",
+    description: "Monthly commute recharge",
+    paymentMethod: "Cash",
+    tag: "Essential",
   },
 ];
+
+// Sample category monthly budgets
+export const sampleBudgets = {
+  Food: 6000,
+  Transport: 2500,
+  Bills: 4000,
+  Entertainment: 2000,
+  Shopping: 3000,
+};
 
 // Read all transactions from Local Storage.
 // If nothing is saved yet, return the sample transactions instead.
@@ -76,10 +175,16 @@ export function getTransactions() {
       return sampleTransactions;
     }
 
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+
+    // If the stored data was the original 6 August records, update to the full dataset including October
+    if (Array.isArray(parsed) && parsed.length <= 6 && parsed.every((t) => t.id <= 6)) {
+      saveTransactions(sampleTransactions);
+      return sampleTransactions;
+    }
+
+    return parsed;
   } catch (error) {
-    // If something goes wrong while reading/parsing Local Storage,
-    // just log it and return an empty list instead of crashing the app.
     console.log("Could not read transactions from Local Storage:", error);
     return [];
   }
@@ -152,5 +257,55 @@ export function saveMonthlyTargetRate(rate) {
     localStorage.setItem(MONTHLY_TARGET_KEY, String(rate));
   } catch (error) {
     console.log("Could not save monthly target rate to Local Storage:", error);
+  }
+}
+
+// Read the user's monthly category budgets
+export function getCategoryBudgets() {
+  try {
+    const data = localStorage.getItem(CATEGORY_BUDGETS_KEY);
+    return data ? JSON.parse(data) : sampleBudgets;
+  } catch (error) {
+    console.log("Could not read category budgets from Local Storage:", error);
+    return sampleBudgets;
+  }
+}
+
+// Save the user's monthly category budgets
+export function saveCategoryBudgets(budgets) {
+  try {
+    localStorage.setItem(CATEGORY_BUDGETS_KEY, JSON.stringify(budgets));
+  } catch (error) {
+    console.log("Could not save category budgets to Local Storage:", error);
+  }
+}
+
+const CATEGORY_SPENT_KEY = "categorySpent";
+
+export const sampleCategorySpent = {
+  Food: 2500,
+  Transport: 900,
+  Bills: 1800,
+  Entertainment: 600,
+  Shopping: 0,
+};
+
+// Read the user's monthly category spent overrides
+export function getCategorySpent() {
+  try {
+    const data = localStorage.getItem(CATEGORY_SPENT_KEY);
+    return data ? JSON.parse(data) : sampleCategorySpent;
+  } catch (error) {
+    console.log("Could not read category spent from Local Storage:", error);
+    return sampleCategorySpent;
+  }
+}
+
+// Save the user's monthly category spent overrides
+export function saveCategorySpent(spentMap) {
+  try {
+    localStorage.setItem(CATEGORY_SPENT_KEY, JSON.stringify(spentMap));
+  } catch (error) {
+    console.log("Could not save category spent to Local Storage:", error);
   }
 }

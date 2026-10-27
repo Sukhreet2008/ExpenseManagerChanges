@@ -27,6 +27,8 @@ function TransactionItem({ transaction, onEdit, onDelete }) {
         <p className="transaction-title">{transaction.title}</p>
         <p className="transaction-meta">
           {transaction.category} • {formatDate(transaction.date)}
+          {transaction.paymentMethod ? ` • ${transaction.paymentMethod}` : ""}
+          {transaction.tag ? ` • [${transaction.tag}]` : ""}
         </p>
         {transaction.description && (
           <p className="transaction-description">{transaction.description}</p>

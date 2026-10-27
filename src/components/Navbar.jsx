@@ -1,39 +1,48 @@
-// Navbar shows the app name, the page links, and the dark mode button.
-// It does not manage any state itself — it just receives values and
-// functions as props from App.jsx and calls them when clicked.
+import { NavLink } from "react-router-dom";
+import { useTheme } from "../context/ThemeContext.js";
 
-const links = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "transactions", label: "Transactions" },
-  { id: "analytics", label: "Analytics" },
-  { id: "settings", label: "Settings" },
+// Navbar: Top-level navigation component powered by React Router NavLink.
+// Features active route highlighting, semantic routing, and context-based theme toggling.
+const navItems = [
+  { path: "/", label: "Dashboard" },
+  { path: "/transactions", label: "Transactions" },
+  { path: "/budgets", label: "Budgets" },
+  { path: "/analytics", label: "Analytics" },
+  { path: "/settings", label: "Settings" },
 ];
 
-function Navbar({ currentPage, onNavigate, theme, onToggleTheme }) {
+function Navbar() {
+  const { theme, toggleTheme } = useTheme();
+
   return (
     <header className="navbar">
       <div className="navbar-inner">
-        <button className="brand" onClick={() => onNavigate("dashboard")}>
+        <NavLink to="/" className="brand">
           <span className="brand-icon">₹</span>
           <span className="brand-name">Expense Manager</span>
-        </button>
+        </NavLink>
 
         <nav className="nav-links">
-          {links.map((link) => (
-            <button
-              key={link.id}
-              className={"nav-link" + (currentPage === link.id ? " active" : "")}
-              onClick={() => onNavigate(link.id)}
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === "/"}
+              className={({ isActive }) =>
+                "nav-link" + (isActive ? " active" : "")
+              }
             >
-              {link.label}
-            </button>
+              {item.label}
+            </NavLink>
           ))}
         </nav>
 
         <button
+          type="button"
           className="theme-toggle"
-          onClick={onToggleTheme}
-          title="Toggle dark mode"
+          onClick={toggleTheme}
+          title="Toggle light/dark mode"
+          aria-label="Toggle theme"
         >
           {theme === "light" ? "🌙" : "☀️"}
         </button>
